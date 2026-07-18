@@ -1,8 +1,9 @@
 # Bypass Mi Community For Xiaomi Unlock Bootloader
 
-# <span style="color:red">Warning</span>
-## Time need to be before 00:00 china time u can check it from here
-## https://time.is/China
+# <details>
+#  <summary>🔴 <b>Critical Warning:</b> Click to expand</summary>
+#  Time need to be before 00:00 china time u can check it from here https://time.is/China
+# </details>
 
 
 ## 1st Login here https://c.mi.com/global/
