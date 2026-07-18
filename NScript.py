@@ -1,21 +1,18 @@
 import subprocess
 import sys
 import os
-import platform
 import argparse
 
 # Server lists
 ntp_servers = [
-"ntp.aliyun.com", # Alibaba Cloud
-"ntp.tencent.com", # Tencent Cloud
-"cn.pool.ntp.org", # China NTP Pool
-"edu.ntp.org.cn", # China Education Network
-"time.apple.com", # Apple
-"time.google.com", # Google
-"pool.ntp.org" # Main NTP Pool
+    "ntp.aliyun.com",   # Alibaba Cloud
+    "ntp.tencent.com",  # Tencent Cloud
+    "cn.pool.ntp.org",  # China NTP Pool
+    "edu.ntp.org.cn",   # China Education Network
+    "time.apple.com",   # Apple
+    "time.google.com",  # Google
+    "pool.ntp.org"      # Main NTP Pool
 ]
-
-MI_SERVERS = ['161.117.96.161', '20.157.18.26']
 
 # Installation of dependencies
 def install_package(package):
@@ -29,7 +26,9 @@ for package in required_packages:
         print(f"Installing package {package}...")
         install_package(package)
 
-os.system('cls' if os.name == 'nt' else 'clear')
+# avoid TERM warnings in CI
+if os.getenv("TERM"):
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 import hashlib
 import linecache
@@ -40,65 +39,61 @@ import ntplib
 import pytz
 import urllib3
 import json
-import statistics
-from icmplib import ping
 from colorama import init, Fore, Style
 
 # Color settings
 init(autoreset=True)
-col_g = Fore.GREEN #green
-col_gb = Style.BRIGHT + Fore.GREEN #bright green
-col_b = Fore.BLUE #blue
-col_bb = Style.BRIGHT + Fore.BLUE #bright blue
-col_y = Fore.YELLOW #yellow
-col_yb = Style.BRIGHT + Fore.YELLOW #bright yellow
-col_r = Fore.RED #red
-col_rb = Style.BRIGHT + Fore.RED #bright red
+col_g = Fore.GREEN
+col_gb = Style.BRIGHT + Fore.GREEN
+col_b = Fore.BLUE
+col_bb = Style.BRIGHT + Fore.BLUE
+col_y = Fore.YELLOW
+col_yb = Style.BRIGHT + Fore.YELLOW
+col_r = Fore.RED
+col_rb = Style.BRIGHT + Fore.RED
 
 scriptversion = "ARU_FHL_v070425"
 
-# Generates a unique device identifier
+def parse_rows():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rows", nargs="+", type=int, required=True, help="Row numbers, e.g. --rows 1 3")
+    return parser.parse_args().rows
+
 def generate_device_id():
     random_data = f"{random.random()}-{time.time()}"
-    device_id = hashlib.sha1(random_data.encode('utf-8')).hexdigest().upper()
-    return device_id
+    return hashlib.sha1(random_data.encode('utf-8')).hexdigest().upper()
 
-# Get the current Beijing time from NTP
 def get_initial_beijing_time():
     client = ntplib.NTPClient()
     beijing_tz = pytz.timezone("Asia/Shanghai")
     for server in ntp_servers:
         try:
-            print(col_y + f"\nGetting current time in Beijing" + Fore.RESET)
+            print(col_y + "\nGetting current time in Beijing" + Fore.RESET)
             response = client.request(server, version=3)
             ntp_time = datetime.fromtimestamp(response.tx_time, timezone.utc)
             beijing_time = ntp_time.astimezone(beijing_tz)
-            print(col_g + f"[Time in Beijing]: " + Fore.RESET +  f"{beijing_time.strftime('%Y-%m-%d %H:%M:%S.%f')}")
+            print(col_g + "[Time in Beijing]: " + Fore.RESET + beijing_time.strftime('%Y-%m-%d %H:%M:%S.%f'))
             return beijing_time
         except Exception as e:
             print(f"Error connecting to {server}: {e}")
-    print(f"Cant't connect with any server NTP.")
+    print("Can't connect with any NTP server.")
     return None
 
-# Synchronize Beijing time
 def get_synchronized_beijing_time(start_beijing_time, start_timestamp):
     elapsed = time.time() - start_timestamp
-    current_time = start_beijing_time + timedelta(seconds=elapsed)
-    return current_time
+    return start_beijing_time + timedelta(seconds=elapsed)
 
-# Wait until the target time taking into account the ping
 def wait_until_target_time(start_beijing_time, start_timestamp, feed_time_shift, feed_time_shift_1):
     next_day = start_beijing_time + timedelta(days=1)
-    print(col_y + f"\nRequest to unlock bootloader" + Fore.RESET)
-    print (col_g + f"[Offset]: " + Fore.RESET + f"{feed_time_shift:.2f} ms.")
+    print(col_y + "\nRequest to unlock bootloader" + Fore.RESET)
+    print(col_g + "[Offset]: " + Fore.RESET + f"{feed_time_shift:.2f} ms.")
     target_time = next_day.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(seconds=feed_time_shift_1)
-    print(col_g + f"[Waiting until]: " + Fore.RESET + f"{target_time.strftime('%Y-%m-%d %H:%M:%S.%f')}")
-    print(f"Don't close this window...")
-   
+    print(col_g + "[Waiting until]: " + Fore.RESET + target_time.strftime('%Y-%m-%d %H:%M:%S.%f'))
+    print("Don't close this window...")
+
     while True:
         current_time = get_synchronized_beijing_time(start_beijing_time, start_timestamp)
         time_diff = target_time - current_time
-       
         if time_diff.total_seconds() > 1:
             time.sleep(min(1.0, time_diff.total_seconds() - 1))
         elif current_time >= target_time:
@@ -107,24 +102,23 @@ def wait_until_target_time(start_beijing_time, start_timestamp, feed_time_shift,
         else:
             time.sleep(0.0001)
 
-# Check if account unlocking is possible via API
-def check_unlock_status(session, cookie_value, device_id):
+def check_unlock_status(session, cookie_value, device_id, non_interactive=True):
     try:
         url = "https://sgp-api.buy.mi.com/bbs/api/global/user/bl-switch/state"
         headers = {
             "Cookie": f"new_bbs_serviceToken={cookie_value};versionCode=500411;versionName=5.4.11;deviceId={device_id};"
         }
-       
+
         response = session.make_request('GET', url, headers=headers)
         if response is None:
-            print(f"[Error] Unlock status unavailable.")
+            print("[Error] Unlock status unavailable.")
             return False
 
         response_data = json.loads(response.data.decode('utf-8'))
         response.release_conn()
 
         if response_data.get("code") == 100004:
-            print(f"[Error] Cookie expired, need an updated one.")
+            print("[Error] Cookie expired, need an updated one.")
             return False
 
         data = response_data.get("data", {})
@@ -134,26 +128,24 @@ def check_unlock_status(session, cookie_value, device_id):
 
         if is_pass == 4:
             if button_state == 1:
-                    print(col_g + f"[Account status]: " + Fore.RESET + f"It is possible to send the request..")
-                    return True
-
+                print(col_g + "[Account status]: " + Fore.RESET + "It is possible to send the request.")
+                return True
             elif button_state == 2:
-                print(col_g + f"[Account status]: " + Fore.RESET + f"Blocked to send requests until " f"{deadline_format} (Month/Day).")
-                return True
+                print(col_g + "[Account status]: " + Fore.RESET + f"Blocked to send requests until {deadline_format} (Month/Day).")
+                return True if non_interactive else False
             elif button_state == 3:
-                print(col_g + f"[Account status]: " + Fore.RESET + f"The account was created less than 30 days ago..")
-                return True
+                print(col_g + "[Account status]: " + Fore.RESET + "The account was created less than 30 days ago.")
+                return True if non_interactive else False
         elif is_pass == 1:
-            print(col_g + f"[Account status]: " + Fore.RESET + f"The request was approved, unlocking is possible until " f"{deadline_format}.")
+            print(col_g + "[Account status]: " + Fore.RESET + f"The request was approved, unlocking is possible until {deadline_format}.")
             return False
         else:
-            print(col_g + f"[Account status]: " + Fore.RESET + f"Status unknown.")
+            print(col_g + "[Account status]: " + Fore.RESET + "Status unknown.")
             return False
     except Exception as e:
-        print(f"[Status check error ] {e}")
+        print(f"[Status check error] {e}")
         return False
 
-# Container for working with HTTP requests
 class HTTP11Session:
     def __init__(self):
         self.http = urllib3.PoolManager(
@@ -169,7 +161,7 @@ class HTTP11Session:
             if headers:
                 request_headers.update(headers)
                 request_headers['Content-Type'] = 'application/json; charset=utf-8'
-           
+
             if method == 'POST':
                 if body is None:
                     body = '{"is_retry":true}'.encode('utf-8')
@@ -177,130 +169,117 @@ class HTTP11Session:
                 request_headers['Accept-Encoding'] = 'gzip, deflate, br'
                 request_headers['User-Agent'] = 'okhttp/4.12.0'
                 request_headers['Connection'] = 'keep-alive'
-           
-            response = self.http.request(
+
+            return self.http.request(
                 method,
                 url,
                 headers=request_headers,
                 body=body,
                 preload_content=False
             )
-           
-            return response
         except Exception as e:
             print(f"[Network error] {e}")
             return None
 
-def parse_token_rows():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--rows", nargs="+", type=int, required=False, help="Token row numbers, e.g. --rows 1 3")
-    args = parser.parse_args()
-    if args.rows and len(args.rows) > 0:
-        return args.rows
-
-    token_number = int(input(col_g + f"[Token row number]: " + Fore.RESET))
-    return [token_number]
-
-def run_for_token_row(token_number):
+def run_for_row(token_number):
     print(col_yb + f"{scriptversion}_token_#{token_number}:")
-    print (col_y + f"Checking account status" + Fore.RESET)
+    print(col_y + "Checking account status" + Fore.RESET)
 
-    token = linecache.getline("token.txt" , token_number).strip ()
+    token = linecache.getline("token.txt", token_number).strip()
     if not token:
         print(col_rb + f"[Error] Missing token at row {token_number}")
         return
 
-    feedtime_line = linecache.getline("timeshift.txt" , token_number).strip ()
-    if not feedtime_line:
+    ts_line = linecache.getline("timeshift.txt", token_number).strip()
+    if not ts_line:
         print(col_rb + f"[Error] Missing timeshift at row {token_number}")
         return
 
     cookie_value = token
-    feedtime = float(feedtime_line)
-    feed_time_shift = feedtime
+    feed_time_shift = float(ts_line)
     feed_time_shift_1 = feed_time_shift / 1000
 
     device_id = generate_device_id()
     session = HTTP11Session()
 
-    if check_unlock_status(session, cookie_value, device_id):
-        start_beijing_time = get_initial_beijing_time()
-        if start_beijing_time is None:
-            print(f"Failed to set start time for row {token_number}.")
-            return
+    if not check_unlock_status(session, cookie_value, device_id, non_interactive=True):
+        return
 
-        start_timestamp = time.time()
-       
-        wait_until_target_time(start_beijing_time, start_timestamp, feed_time_shift, feed_time_shift_1)
+    start_beijing_time = get_initial_beijing_time()
+    if start_beijing_time is None:
+        print(f"Failed to set start time for row {token_number}.")
+        return
 
-        url = "https://sgp-api.buy.mi.com/bbs/api/global/apply/bl-auth"
-        headers = {
-            "Cookie": f"new_bbs_serviceToken={cookie_value};versionCode=500411;versionName=5.4.11;deviceId={device_id};"
-        }
+    start_timestamp = time.time()
+    wait_until_target_time(start_beijing_time, start_timestamp, feed_time_shift, feed_time_shift_1)
 
-        try:
-            while True:
-                request_time = get_synchronized_beijing_time(start_beijing_time, start_timestamp)
-                print(col_g + f"[Request]: " + Fore.RESET + f"Sending request at {request_time.strftime('%Y-%m-%d %H:%M:%S.%f')} (UTC+8)")
-               
-                response = session.make_request('POST', url, headers=headers)
-                if response is None:
-                    continue
+    url = "https://sgp-api.buy.mi.com/bbs/api/global/apply/bl-auth"
+    headers = {
+        "Cookie": f"new_bbs_serviceToken={cookie_value};versionCode=500411;versionName=5.4.11;deviceId={device_id};"
+    }
 
-                response_time = get_synchronized_beijing_time(start_beijing_time, start_timestamp)
-                print(col_g + f"[Answer]: " + Fore.RESET + f"Answer received at {response_time.strftime('%Y-%m-%d %H:%M:%S.%f')} (UTC+8)")
+    try:
+        while True:
+            request_time = get_synchronized_beijing_time(start_beijing_time, start_timestamp)
+            print(col_g + "[Request]: " + Fore.RESET + f"Sending request at {request_time.strftime('%Y-%m-%d %H:%M:%S.%f')} (UTC+8)")
 
-                try:
-                    response_data = response.data
-                    response.release_conn()
-                    json_response = json.loads(response_data.decode('utf-8'))
-                    code = json_response.get("code")
-                    data = json_response.get("data", {})
+            response = session.make_request('POST', url, headers=headers)
+            if response is None:
+                continue
 
-                    if code == 0:
-                        apply_result = data.get("apply_result")
-                        if apply_result == 1:
-                            print(col_g + f"[Status]: " + Fore.RESET + f"Request approved, verifying status...")
-                            check_unlock_status(session, cookie_value, device_id)
-                            return
-                        elif apply_result == 3:
-                            deadline_format = data.get("deadline_format", "Not specified")
-                            print(col_g + f"[Status]: " + Fore.RESET + f"Request not sent, The limit has been reached. Please try again after {deadline_format} (Month/Day).")
-                            return
-                        elif apply_result == 4:
-                            deadline_format = data.get("deadline_format", "Not specified")
-                            print(col_g + f"[Status]: " + Fore.RESET + f"The request was not sent, a block was imposed until {deadline_format} (Month/Day).")
-                            return
-                    elif code == 100001:
-                        print(col_g + f"[Status]: " + Fore.RESET + f"The request was rejected...")
-                        print(col_g + f"[Full answer]: " + Fore.RESET + f"{json_response}")
-                    elif code == 100003:
-                        print(col_g + f"[Status]: " + Fore.RESET + f"The request may have been approved, checking status...")
-                        print(col_g + f"[Full answer]: " + Fore.RESET + f"{json_response}")
-                        check_unlock_status(session, cookie_value, device_id)
-                    elif code is not None:
-                        print(col_g + f"[Status]: " + Fore.RESET + f"Unknown status of the request: {code}")
-                        print(col_g + f"[Full answer]: " + Fore.RESET + f"{json_response}")
-                    else:
-                        print(col_g + f"[Error]: " + Fore.RESET + f"Answer does not contain the required code.")
-                        print(col_g + f"[Full answer]: " + Fore.RESET + f"{json_response}")
+            response_time = get_synchronized_beijing_time(start_beijing_time, start_timestamp)
+            print(col_g + "[Answer]: " + Fore.RESET + f"Answer received at {response_time.strftime('%Y-%m-%d %H:%M:%S.%f')} (UTC+8)")
 
-                except json.JSONDecodeError:
-                    print(col_g + f"[Error]: " + Fore.RESET + f"The JSON could not be decoded...")
-                    print(col_g + f"[Server answer]: " + Fore.RESET + f"{response_data}")
-                except Exception as e:
-                    print(col_g + f"[Error processing answer]: " + Fore.RESET + f"{e}")
-                    continue
+            try:
+                response_data = response.data
+                response.release_conn()
+                json_response = json.loads(response_data.decode('utf-8'))
+                code = json_response.get("code")
+                data = json_response.get("data", {})
 
-        except Exception as e:
-            print(col_g + f"[Request error]: " + Fore.RESET + f"{e}")
-            return
+                if code == 0:
+                    apply_result = data.get("apply_result")
+                    if apply_result == 1:
+                        print(col_g + "[Status]: " + Fore.RESET + "Request approved, verifying status...")
+                        check_unlock_status(session, cookie_value, device_id, non_interactive=True)
+                        return
+                    elif apply_result == 3:
+                        deadline_format = data.get("deadline_format", "Not specified")
+                        print(col_g + "[Status]: " + Fore.RESET + f"Limit reached. Try again after {deadline_format} (Month/Day).")
+                        return
+                    elif apply_result == 4:
+                        deadline_format = data.get("deadline_format", "Not specified")
+                        print(col_g + "[Status]: " + Fore.RESET + f"Blocked until {deadline_format} (Month/Day).")
+                        return
+                elif code == 100001:
+                    print(col_g + "[Status]: " + Fore.RESET + "The request was rejected...")
+                    print(col_g + "[Full answer]: " + Fore.RESET + f"{json_response}")
+                elif code == 100003:
+                    print(col_g + "[Status]: " + Fore.RESET + "The request may have been approved, checking status...")
+                    print(col_g + "[Full answer]: " + Fore.RESET + f"{json_response}")
+                    check_unlock_status(session, cookie_value, device_id, non_interactive=True)
+                elif code is not None:
+                    print(col_g + "[Status]: " + Fore.RESET + f"Unknown request status: {code}")
+                    print(col_g + "[Full answer]: " + Fore.RESET + f"{json_response}")
+                else:
+                    print(col_g + "[Error]: " + Fore.RESET + "Response does not contain code.")
+                    print(col_g + "[Full answer]: " + Fore.RESET + f"{json_response}")
+
+            except json.JSONDecodeError:
+                print(col_g + "[Error]: " + Fore.RESET + "JSON decode failed.")
+                print(col_g + "[Server answer]: " + Fore.RESET + f"{response_data}")
+            except Exception as e:
+                print(col_g + "[Error processing answer]: " + Fore.RESET + f"{e}")
+                continue
+
+    except Exception as e:
+        print(col_g + "[Request error]: " + Fore.RESET + f"{e}")
+        return
 
 def main():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    token_rows = parse_token_rows()
-    for token_number in token_rows:
-        run_for_token_row(token_number)
+    rows = parse_rows()
+    for row in rows:
+        run_for_row(row)
 
 if __name__ == "__main__":
     main()
