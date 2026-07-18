@@ -1,37 +1,40 @@
-name: Run Bypasser
+name: Run Bypasser (token inputs)
 
 on:
   workflow_dispatch:
     inputs:
-      row_1:
-        description: "Row 1 (token.txt/timeshift.txt line number)"
+      token_1:
+        description: "Token for line 1"
         required: true
-        default: "1"
-      row_2:
-        description: "Row 2 (token.txt/timeshift.txt line number)"
+      token_2:
+        description: "Token for line 2"
         required: true
-        default: "2"
-      row_3:
-        description: "Row 3 (token.txt/timeshift.txt line number)"
+      token_3:
+        description: "Token for line 3"
         required: true
-        default: "3"
-      row_4:
-        description: "Row 4 (token.txt/timeshift.txt line number)"
+      token_4:
+        description: "Token for line 4"
         required: true
-        default: "4"
+      timeshift_1:
+        description: "Timeshift for line 1 (ms)"
+        required: true
+        default: "1400"
+      timeshift_2:
+        description: "Timeshift for line 2 (ms)"
+        required: true
+        default: "900"
+      timeshift_3:
+        description: "Timeshift for line 3 (ms)"
+        required: true
+        default: "400"
+      timeshift_4:
+        description: "Timeshift for line 4 (ms)"
+        required: true
+        default: "100"
 
 jobs:
-  run-rows:
+  run:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        row:
-          - ${{ github.event.inputs.row_1 }}
-          - ${{ github.event.inputs.row_2 }}
-          - ${{ github.event.inputs.row_3 }}
-          - ${{ github.event.inputs.row_4 }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -44,13 +47,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests ntplib pytz urllib3 icmplib colorama
 
-      - name: Validate row input
+      - name: Build token.txt and timeshift.txt from inputs
         run: |
-          if ! [[ "${{ matrix.row }}" =~ ^[0-9]+$ ]]; then
-            echo "Invalid row: ${{ matrix.row }} (must be numeric)"
-            exit 1
-          fi
+          cat > token.txt << 'EOF'
+          ${{ github.event.inputs.token_1 }}
+          ${{ github.event.inputs.token_2 }}
+          ${{ github.event.inputs.token_3 }}
+          ${{ github.event.inputs.token_4 }}
+          EOF
 
-      - name: Run NScript
+          cat > timeshift.txt << 'EOF'
+          ${{ github.event.inputs.timeshift_1 }}
+          ${{ github.event.inputs.timeshift_2 }}
+          ${{ github.event.inputs.timeshift_3 }}
+          ${{ github.event.inputs.timeshift_4 }}
+          EOF
+
+      - name: Run all rows 1 2 3 4
         run: |
-          python NScript.py --rows ${{ matrix.row }}
+          python NScript.py --rows 1 2 3 4
