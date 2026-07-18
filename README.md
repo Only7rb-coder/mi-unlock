@@ -1,4 +1,4 @@
-Bypass Mi Community For Xiaomi Unlock Bootloader
+# Bypass Mi Community For Xiaomi Unlock Bootloader
 
 1st Login here https://c.mi.com/global/
 
@@ -12,7 +12,7 @@ then login again here : https://c.mi.com/global/
 
 paste this in search bar 
 
-javascript:(function(){var token=document.cookie.match(/popRunToken=([^;]+)/);if(token){prompt("Copy the token:", token[1]);}else{alert("Token not found");}})()
+```javascript:(function(){var token=document.cookie.match(/popRunToken=([^;]+)/);if(token){prompt("Copy the token:", token[1]);}else{alert("Token not found");}})()```
 
 and be sure to add javascript: again
 
