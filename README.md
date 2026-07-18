@@ -5,6 +5,12 @@
   Time needs to be before 00:00 China time. You can check it from here https://time.is/China
 </details>
 
+<details>
+  <summary><h2>🟢 <b>Need To Know:</b> Click to expand</h2></summary>
+  if u got errors u can cancel workflow then u can add ur acc from developer options 
+ <img width="720" height="1280" alt="image" src="https://github.com/user-attachments/assets/98542352-8fa7-4b21-8c6d-4b4e28c592a5" />
+
+</details>
 
 
 ## 1st Login here https://c.mi.com/global/
