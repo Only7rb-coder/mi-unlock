@@ -21,50 +21,36 @@ on:
         default: "4"
 
 jobs:
-  run-row-1:
+  run-rows:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: |
-          python -m pip install --upgrade pip
-          pip install requests ntplib pytz urllib3 icmplib colorama
-      - run: python NScript.py --rows ${{ github.event.inputs.row_1 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        row:
+          - ${{ github.event.inputs.row_1 }}
+          - ${{ github.event.inputs.row_2 }}
+          - ${{ github.event.inputs.row_3 }}
+          - ${{ github.event.inputs.row_4 }}
 
-  run-row-2:
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: |
-          python -m pip install --upgrade pip
-          pip install requests ntplib pytz urllib3 icmplib colorama
-      - run: python NScript.py --rows ${{ github.event.inputs.row_2 }}
 
-  run-row-3:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: |
-          python -m pip install --upgrade pip
-          pip install requests ntplib pytz urllib3 icmplib colorama
-      - run: python NScript.py --rows ${{ github.event.inputs.row_3 }}
 
-  run-row-4:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: |
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install requests ntplib pytz urllib3 icmplib colorama
-      - run: python NScript.py --rows ${{ github.event.inputs.row_4 }}
+
+      - name: Validate row input
+        run: |
+          if ! [[ "${{ matrix.row }}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid row: ${{ matrix.row }} (must be numeric)"
+            exit 1
+          fi
+
+      - name: Run NScript
+        run: |
+          python NScript.py --rows ${{ matrix.row }}
