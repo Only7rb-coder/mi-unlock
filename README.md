@@ -1,5 +1,10 @@
 # Bypass Mi Community For Xiaomi Unlock Bootloader
 
+# <span style="color:red">Warning</span>
+## Time need to be before 00:00 china time u can check it from here
+## https://time.is/China
+
+
 ## 1st Login here https://c.mi.com/global/
 
 ## open firefox with cookie editor then copy this 
@@ -21,3 +26,6 @@
 <img width="900" height="397" alt="image" src="https://github.com/user-attachments/assets/f66178f6-a66f-4f5f-af2a-f84da27403c7" />
 
 ## put it in 2 & 4 
+
+## then press run or execute 
+
