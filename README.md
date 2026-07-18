@@ -7,7 +7,7 @@
 
 <details>
   <summary><h2>🟢 <b>Need To Know:</b> Click to expand</h2></summary>
-  <h2>if u got errors u can cancel workflow then u can add ur acc from developer options </h2>
+  <h2>if u got errors after 00:00 passes u can cancel workflow then u can add ur acc from developer options </h2>
  <img width="720" height="1280" alt="image" src="https://github.com/user-attachments/assets/98542352-8fa7-4b21-8c6d-4b4e28c592a5" />
 </details>
 
