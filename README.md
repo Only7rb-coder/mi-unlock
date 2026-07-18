@@ -2,7 +2,7 @@
 
  <details>
   <summary><h2>🔴 <b>Critical Warning:</b> Click to expand</h2></summary>
-  Time needs to be before 00:00 China time. You can check it from here https://time.is/China
+  <h2>Time needs to be before 00:00 China time. You can check it from here https://time.is/China </h2>
 </details>
 
 <details>
