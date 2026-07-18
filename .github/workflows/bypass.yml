@@ -1,12 +1,12 @@
-name: Run Bypasser (parallel rows)
+name: Run Bypass
 
 on:
   workflow_dispatch:
     inputs:
-      token_1: { description: "Token line 1", required: true }
-      token_2: { description: "Token line 2", required: true }
-      token_3: { description: "Token line 3", required: true }
-      token_4: { description: "Token line 4", required: true }
+      token_1: { description: "Token 1 same as token 3", required: true }
+      token_2: { description: "Token 2 same as token 4", required: true }
+      token_3: { description: "Token 3 same as token 1", required: true }
+      token_4: { description: "Token 4 same as token 2", required: true }
       timeshift_1: { description: "Timeshift line 1", required: true, default: "1400" }
       timeshift_2: { description: "Timeshift line 2", required: true, default: "900" }
       timeshift_3: { description: "Timeshift line 3", required: true, default: "400" }
