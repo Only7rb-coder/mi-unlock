@@ -1,68 +1,48 @@
-name: Run Bypasser (token inputs)
+name: Run Bypasser (parallel rows)
 
 on:
   workflow_dispatch:
     inputs:
-      token_1:
-        description: "Token for line 1"
-        required: true
-      token_2:
-        description: "Token for line 2"
-        required: true
-      token_3:
-        description: "Token for line 3"
-        required: true
-      token_4:
-        description: "Token for line 4"
-        required: true
-      timeshift_1:
-        description: "Timeshift for line 1 (ms)"
-        required: true
-        default: "1400"
-      timeshift_2:
-        description: "Timeshift for line 2 (ms)"
-        required: true
-        default: "900"
-      timeshift_3:
-        description: "Timeshift for line 3 (ms)"
-        required: true
-        default: "400"
-      timeshift_4:
-        description: "Timeshift for line 4 (ms)"
-        required: true
-        default: "100"
+      token_1: { description: "Token line 1", required: true }
+      token_2: { description: "Token line 2", required: true }
+      token_3: { description: "Token line 3", required: true }
+      token_4: { description: "Token line 4", required: true }
+      timeshift_1: { description: "Timeshift line 1", required: true, default: "1400" }
+      timeshift_2: { description: "Timeshift line 2", required: true, default: "900" }
+      timeshift_3: { description: "Timeshift line 3", required: true, default: "400" }
+      timeshift_4: { description: "Timeshift line 4", required: true, default: "100" }
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - row: 1
+            token: ${{ github.event.inputs.token_1 }}
+            shift: ${{ github.event.inputs.timeshift_1 }}
+          - row: 2
+            token: ${{ github.event.inputs.token_2 }}
+            shift: ${{ github.event.inputs.timeshift_2 }}
+          - row: 3
+            token: ${{ github.event.inputs.token_3 }}
+            shift: ${{ github.event.inputs.timeshift_3 }}
+          - row: 4
+            token: ${{ github.event.inputs.token_4 }}
+            shift: ${{ github.event.inputs.timeshift_4 }}
+
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install requests ntplib pytz urllib3 icmplib colorama
-
-      - name: Build token.txt and timeshift.txt from inputs
+      - name: Write single-row files for this matrix job
         run: |
-          cat > token.txt << 'EOF'
-          ${{ github.event.inputs.token_1 }}
-          ${{ github.event.inputs.token_2 }}
-          ${{ github.event.inputs.token_3 }}
-          ${{ github.event.inputs.token_4 }}
-          EOF
-
-          cat > timeshift.txt << 'EOF'
-          ${{ github.event.inputs.timeshift_1 }}
-          ${{ github.event.inputs.timeshift_2 }}
-          ${{ github.event.inputs.timeshift_3 }}
-          ${{ github.event.inputs.timeshift_4 }}
-          EOF
-
-      - name: Run all rows 1 2 3 4
-        run: |
-          python NScript.py --rows 1 2 3 4
+          printf "%s\n" "${{ matrix.token }}" > token.txt
+          printf "%s\n" "${{ matrix.shift }}" > timeshift.txt
+      - name: Run this row
+        run: python NScript.py --rows 1
