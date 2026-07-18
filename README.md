@@ -20,7 +20,7 @@
 
 ## and put it in 1 & 3 in workflow 
 
-## then login again here : https://c.mi.com/global/
+## then login again here but from chrome : https://c.mi.com/global/
 
 ## paste this in search bar 
 
